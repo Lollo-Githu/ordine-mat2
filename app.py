@@ -1,12 +1,9 @@
 
 import streamlit as st
 import pandas as pd
-from io import BytesIO
-import base64
 
 st.set_page_config(page_title="Ordine Materiali", layout="centered")
 
-# Carica materiali da Excel
 @st.cache_data
 def carica_materiali():
     df = pd.read_excel("materiali.xlsx", sheet_name="Magazzino")
@@ -32,7 +29,6 @@ location_list = sorted([
 
 materiali = carica_materiali()
 
-# ----------------- FORM ------------------
 st.title("📦 Ordine Materiali")
 
 with st.form("ordine_form"):
@@ -47,30 +43,10 @@ with st.form("ordine_form"):
     submitted = st.form_submit_button("✅ Invia Ordine")
 
 if submitted:
-    # Crea DataFrame ordine
-    ordine = pd.DataFrame([{
-        "Nome": nome,
-        "Email": email,
-        "Materiale": materiale,
-        "Quantità": quantita,
-        "Location": location,
-        "Data Consegna": data_consegna,
-        "Data Ritiro": data_ritiro
-    }])
-
-    # Salva come Excel in memoria
-    buffer = BytesIO()
-    ordine.to_excel(buffer, index=False, engine='openpyxl')
-    buffer.seek(0)
-
-    b64_excel = base64.b64encode(buffer.read()).decode()
-
     js = f"""
     <script src="https://cdn.jsdelivr.net/npm/emailjs-com@2/dist/email.min.js"></script>
     <script type="text/javascript">
-        (function() {{
-            emailjs.init("{st.secrets['PUBLIC_KEY']}");
-        }})();
+        emailjs.init("o3aomRWgK0q7NQacp");
 
         var templateParams = {{
             user_name: "{nome}",
@@ -79,11 +55,10 @@ if submitted:
             quantita: "{quantita}",
             location: "{location}",
             consegna: "{data_consegna}",
-            ritiro: "{data_ritiro}",
-            allegato: "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_excel}"
+            ritiro: "{data_ritiro}"
         }};
 
-        emailjs.send("{st.secrets['SERVICE_ID']}", "{st.secrets['TEMPLATE_ID']}", templateParams)
+        emailjs.send("service_dpg99gt", "template_cy5xjyk", templateParams)
         .then(function(response) {{
             alert("✅ Ordine inviato con successo!");
         }}, function(error) {{
@@ -92,5 +67,4 @@ if submitted:
         }});
     </script>
     """
-
     st.components.v1.html(js, height=0)
