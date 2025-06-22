@@ -1,45 +1,55 @@
-
+import pandas as pd
 import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
+from datetime import date
 
-# === Autenticazione Google ===
-def connect_to_gsheet():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
-             "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_file("credenziali.json", scopes=scope)
-    client = gspread.authorize(creds)
-    return client
+# Caricamento dati da Excel
+df = pd.read_excel("materiali.xlsx")
+materiali = sorted(df["Name"].dropna().unique())
 
-# === Lettura materiali da foglio "Magazzino" ===
-@st.cache_data
-def get_materiali():
-    sheet = connect_to_gsheet().open("Gestione Ordini").worksheet("Magazzino")
-    data = sheet.col_values(1)  # Prima colonna
-    return sorted(list(set([m.strip() for m in data if m.strip().lower() != "nome del materiale"])))
+# Location disponibili (in ordine alfabetico)
+locations = sorted([
+    "Piazza Grande", "GranRex", "Palexpo (FEVI)", "La Sala", "L'altra Sala", "Teatro Kursaal",
+    "Palavideo - Muralto", "Rialto 1", "Rialto 2", "Rialto 3", "PalaCinema 1", "PalaCinema 2",
+    "PalaCinema 3", "Ex-Gas", "CapCom", "Monzeglio", "Galleria", "Sterrato Ex-Gas", "Rialto",
+    "Rotonda - Magazzino", "Hotel Belvedere", "SES - Corte", "SES - Salone", "SES - Saletta blue",
+    "Casa Rusca", "Sant'Eugenio", "Palazzo Casorella", "Palacinema", "Forum (@Spazio Cinema)",
+    "Monte Verità", "Via V. Pedrotta", "Villa San Quirico", "Piazza Grande - Schermo", "Cassa - PG",
+    "Cassa - Coop", "Cassa - Fevi", "Piazza Grande - Cabina Proiezione", "Lettering Locarno di UBS",
+    "Rotonda by la Mobiliare", "PalaCinema - 3P", "Davide Campari Lounge", "PalaCinema - 4P",
+    "Ufficio Remo Rossi", "Leopard Club Lounge", "La Posta PT", "Banfi (Vallemaggia)",
+    "Palacinema - PGR", "Parcheggi Sunstore", "Swiss Life Lounge (@Spazio Cinema)",
+    "Parcheggi scuola media Morettina", "Palacinema - LFF", "SUPSI - Magistrale", "Largo Zorzi",
+    "Bagni - Marcacci", "Bagni - Fevi / Forum", "Castello Visconteo", "CPC - Uffici",
+    "CPC - Spazi OD & Pro", "Hertz - Ritiro auto"
+])
 
-# === App Streamlit ===
-st.title("Modulo ordine materiale")
+# Interfaccia Streamlit
+st.title("📦 Modulo Ordine Materiale")
 
-# Dati utente
-user_name = st.text_input("Il tuo nome")
-user_email = st.text_input("La tua email")
+location = st.selectbox("📍 Seleziona la location di consegna", locations)
+nome_richiedente = st.text_input("👤 Nome e cognome")
+email_richiedente = st.text_input("📧 Indirizzo email")
+materiale = st.selectbox("📦 Seleziona il materiale da ordinare", materiali)
+quantita = st.number_input("🔢 Inserisci la quantità desiderata", min_value=1, step=1)
+data_consegna = st.date_input("📅 Data di consegna", value=date.today())
+data_ritiro = st.date_input("📅 Data di ritiro", value=date.today())
 
-# Dropdown dei materiali
-materiali = get_materiali()
-materiale_scelto = st.selectbox("Scegli un materiale", materiali)
+if st.button("✅ Invia ordine"):
+    nuovo_ordine = pd.DataFrame([{
+        "Nome Richiedente": nome_richiedente,
+        "Email": email_richiedente,
+        "Location": location,
+        "Materiale": materiale,
+        "Quantità": quantita,
+        "Data Consegna": data_consegna,
+        "Data Ritiro": data_ritiro
+    }])
 
-# Altri campi
-quantita = st.number_input("Quantità", min_value=1, step=1)
-location = st.text_input("Location")
-consegna = st.date_input("Data di consegna")
-ritiro = st.date_input("Data di ritiro")
-
-# Invia ordine
-if st.button("Invia Ordine"):
     try:
-        sheet = connect_to_gsheet().open("Gestione Ordini").worksheet("Ordini")
-        sheet.append_row([user_name, user_email, materiale_scelto, quantita, location, str(consegna), str(ritiro)])
-        st.success("Ordine inviato con successo!")
-    except Exception as e:
-        st.error(f"Errore durante l'invio: {e}")
+        ordini = pd.read_excel("ordini.xlsx")
+        ordini = pd.concat([ordini, nuovo_ordine], ignore_index=True)
+    except FileNotFoundError:
+        ordini = nuovo_ordine
+
+    ordini.to_excel("ordini.xlsx", index=False)
+    st.success("✅ Ordine inviato con successo!")
