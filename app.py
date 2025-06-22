@@ -1,70 +1,45 @@
 
 import streamlit as st
-import pandas as pd
+import gspread
+from google.oauth2.service_account import Credentials
 
-st.set_page_config(page_title="Ordine Materiali", layout="centered")
+# === Autenticazione Google ===
+def connect_to_gsheet():
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
+             "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+    creds = Credentials.from_service_account_file("credenziali.json", scopes=scope)
+    client = gspread.authorize(creds)
+    return client
 
+# === Lettura materiali da foglio "Magazzino" ===
 @st.cache_data
-def carica_materiali():
-    df = pd.read_excel("materiali.xlsx", sheet_name="Magazzino")
-    return sorted(df["Nome"].dropna().unique())
+def get_materiali():
+    sheet = connect_to_gsheet().open("Gestione Ordini").worksheet("Magazzino")
+    data = sheet.col_values(1)  # Prima colonna
+    return sorted(list(set([m.strip() for m in data if m.strip().lower() != "nome del materiale"])))
 
-# Lista location
-location_list = sorted([
-    "Bagni - Fevi / Forum", "Bagni - Marcacci", "Banfi (Vallemaggia)", "CapCom",
-    "Casa Rusca", "Castello Visconteo", "Cassa - Coop", "Cassa - Fevi",
-    "Cassa - PG", "CPC - Spazi OD & Pro", "CPC - Uffici", "Davide Campari Lounge",
-    "Ex-Gas", "Forum (@Spazio Cinema)", "Galleria", "GranRex", "Hotel Belvedere",
-    "Hertz - Ritiro auto", "L'altra Sala", "La Posta PT", "La Sala",
-    "Largo Zorzi", "Leopard Club Lounge", "Lettering Locarno di UBS", "Monzeglio",
-    "Monte Verità", "Palacinema", "Palacinema - 4P", "Palacinema - LFF",
-    "Palacinema - PGR", "PalaCinema 1", "PalaCinema 2", "PalaCinema 3",
-    "PalaCinema - 3P", "Palexpo (FEVI)", "Palavideo - Muralto", "Piazza Grande",
-    "Piazza Grande - Cabina Proiezione", "Piazza Grande - Schermo", "Rialto",
-    "Rialto 1", "Rialto 2", "Rialto 3", "Rotonda - Magazzino", "Rotonda by la Mobiliare",
-    "Sant'Eugenio", "Sant'Eugenio", "SES - Corte", "SES - Saletta blue", "SES - Salone",
-    "Sterrato Ex-Gas", "SUPSI - Magistrale", "Swiss Life Lounge (@Spazio Cinema)",
-    "Teatro Kursaal", "Ufficio Remo Rossi", "Via V. Pedrotta", "Villa San Quirico"
-])
+# === App Streamlit ===
+st.title("Modulo ordine materiale")
 
-materiali = carica_materiali()
+# Dati utente
+user_name = st.text_input("Il tuo nome")
+user_email = st.text_input("La tua email")
 
-st.title("📦 Ordine Materiali")
+# Dropdown dei materiali
+materiali = get_materiali()
+materiale_scelto = st.selectbox("Scegli un materiale", materiali)
 
-with st.form("ordine_form"):
-    nome = st.text_input("👤 Nome")
-    email = st.text_input("📧 Email")
-    materiale = st.selectbox("📄 Materiale", materiali)
-    quantita = st.number_input("🔢 Quantità", min_value=1)
-    location = st.selectbox("📍 Location", location_list)
-    data_consegna = st.date_input("📅 Data Consegna")
-    data_ritiro = st.date_input("📅 Data Ritiro")
+# Altri campi
+quantita = st.number_input("Quantità", min_value=1, step=1)
+location = st.text_input("Location")
+consegna = st.date_input("Data di consegna")
+ritiro = st.date_input("Data di ritiro")
 
-    submitted = st.form_submit_button("✅ Invia Ordine")
-
-if submitted:
-    js = f"""
-    <script src="https://cdn.jsdelivr.net/npm/emailjs-com@2/dist/email.min.js"></script>
-    <script type="text/javascript">
-        emailjs.init("o3aomRWgK0q7NQacp");
-
-        var templateParams = {{
-            user_name: "{nome}",
-            user_email: "{email}",
-            materiale: "{materiale}",
-            quantita: "{quantita}",
-            location: "{location}",
-            consegna: "{data_consegna}",
-            ritiro: "{data_ritiro}"
-        }};
-
-        emailjs.send("service_dpg99gt", "template_cy5xjyk", templateParams)
-        .then(function(response) {{
-            alert("✅ Ordine inviato con successo!");
-        }}, function(error) {{
-            alert("❌ Errore durante l'invio dell'ordine.");
-            console.error("Errore EmailJS:", error);
-        }});
-    </script>
-    """
-    st.components.v1.html(js, height=0)
+# Invia ordine
+if st.button("Invia Ordine"):
+    try:
+        sheet = connect_to_gsheet().open("Gestione Ordini").worksheet("Ordini")
+        sheet.append_row([user_name, user_email, materiale_scelto, quantita, location, str(consegna), str(ritiro)])
+        st.success("Ordine inviato con successo!")
+    except Exception as e:
+        st.error(f"Errore durante l'invio: {e}")
