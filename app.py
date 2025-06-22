@@ -6,13 +6,13 @@ import base64
 
 st.set_page_config(page_title="Ordine Materiali", layout="centered")
 
-# Carica materiali da file Excel
+# Carica materiali da Excel
 @st.cache_data
 def carica_materiali():
     df = pd.read_excel("materiali.xlsx", sheet_name="Magazzino")
     return sorted(df["Nome"].dropna().unique())
 
-# Lista fissa location
+# Lista location
 location_list = sorted([
     "Bagni - Fevi / Forum", "Bagni - Marcacci", "Banfi (Vallemaggia)", "CapCom",
     "Casa Rusca", "Castello Visconteo", "Cassa - Coop", "Cassa - Fevi",
@@ -58,41 +58,38 @@ if submitted:
         "Data Ritiro": data_ritiro
     }])
 
-    # Salva in memoria come Excel
+    # Salva come Excel in memoria
     buffer = BytesIO()
     ordine.to_excel(buffer, index=False, engine='openpyxl')
     buffer.seek(0)
 
-    # Codifica il file per invio via JS (Base64)
     b64_excel = base64.b64encode(buffer.read()).decode()
 
-    # Script JS per invio con EmailJS
     js = f"""
+    <script src="https://cdn.jsdelivr.net/npm/emailjs-com@2/dist/email.min.js"></script>
     <script type="text/javascript">
-        function sendEmail() {{
+        (function() {{
             emailjs.init("{st.secrets['PUBLIC_KEY']}");
+        }})();
 
-            var templateParams = {{
-                user_name: "{nome}",
-                user_email: "{email}",
-                materiale: "{materiale}",
-                quantita: "{quantita}",
-                location: "{location}",
-                consegna: "{data_consegna}",
-                ritiro: "{data_ritiro}",
-                allegato: "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_excel}"
-            }};
+        var templateParams = {{
+            user_name: "{nome}",
+            user_email: "{email}",
+            materiale: "{materiale}",
+            quantita: "{quantita}",
+            location: "{location}",
+            consegna: "{data_consegna}",
+            ritiro: "{data_ritiro}",
+            allegato: "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64_excel}"
+        }};
 
-            emailjs.send("{st.secrets['SERVICE_ID']}", "{st.secrets['TEMPLATE_ID']}", templateParams)
-            .then(function(response) {{
-                alert("✅ Ordine inviato con successo!");
-            }}, function(error) {{
-                alert("❌ Errore durante l'invio dell'ordine.");
-                console.error(error);
-            }});
-        }}
-
-        sendEmail();
+        emailjs.send("{st.secrets['SERVICE_ID']}", "{st.secrets['TEMPLATE_ID']}", templateParams)
+        .then(function(response) {{
+            alert("✅ Ordine inviato con successo!");
+        }}, function(error) {{
+            alert("❌ Errore durante l'invio dell'ordine.");
+            console.error("Errore EmailJS:", error);
+        }});
     </script>
     """
 
