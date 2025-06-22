@@ -6,15 +6,41 @@ import base64
 
 st.set_page_config(page_title="Ordine Materiali", layout="centered")
 
+# Carica materiali da file Excel
+@st.cache_data
+def carica_materiali():
+    df = pd.read_excel("materiali.xlsx", sheet_name="Magazzino")
+    return sorted(df["Nome"].dropna().unique())
+
+# Lista fissa location
+location_list = sorted([
+    "Bagni - Fevi / Forum", "Bagni - Marcacci", "Banfi (Vallemaggia)", "CapCom",
+    "Casa Rusca", "Castello Visconteo", "Cassa - Coop", "Cassa - Fevi",
+    "Cassa - PG", "CPC - Spazi OD & Pro", "CPC - Uffici", "Davide Campari Lounge",
+    "Ex-Gas", "Forum (@Spazio Cinema)", "Galleria", "GranRex", "Hotel Belvedere",
+    "Hertz - Ritiro auto", "L'altra Sala", "La Posta PT", "La Sala",
+    "Largo Zorzi", "Leopard Club Lounge", "Lettering Locarno di UBS", "Monzeglio",
+    "Monte Verità", "Palacinema", "Palacinema - 4P", "Palacinema - LFF",
+    "Palacinema - PGR", "PalaCinema 1", "PalaCinema 2", "PalaCinema 3",
+    "PalaCinema - 3P", "Palexpo (FEVI)", "Palavideo - Muralto", "Piazza Grande",
+    "Piazza Grande - Cabina Proiezione", "Piazza Grande - Schermo", "Rialto",
+    "Rialto 1", "Rialto 2", "Rialto 3", "Rotonda - Magazzino", "Rotonda by la Mobiliare",
+    "Sant'Eugenio", "Sant'Eugenio", "SES - Corte", "SES - Saletta blue", "SES - Salone",
+    "Sterrato Ex-Gas", "SUPSI - Magistrale", "Swiss Life Lounge (@Spazio Cinema)",
+    "Teatro Kursaal", "Ufficio Remo Rossi", "Via V. Pedrotta", "Villa San Quirico"
+])
+
+materiali = carica_materiali()
+
 # ----------------- FORM ------------------
 st.title("📦 Ordine Materiali")
 
 with st.form("ordine_form"):
     nome = st.text_input("👤 Nome")
     email = st.text_input("📧 Email")
-    materiale = st.text_input("📄 Materiale")
+    materiale = st.selectbox("📄 Materiale", materiali)
     quantita = st.number_input("🔢 Quantità", min_value=1)
-    location = st.text_input("📍 Location")
+    location = st.selectbox("📍 Location", location_list)
     data_consegna = st.date_input("📅 Data Consegna")
     data_ritiro = st.date_input("📅 Data Ritiro")
 
