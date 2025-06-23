@@ -4,7 +4,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 
-# Connessione a Google Sheets tramite secrets
+# Connessione a Google Sheets tramite Streamlit secrets
 @st.cache_resource
 def connect_to_gsheet():
     scopes = [
@@ -15,32 +15,29 @@ def connect_to_gsheet():
     client = gspread.authorize(creds)
     return client
 
-# Carica materiali dal foglio "Magazzino"
+# Carica materiali e location da Google Sheets
 @st.cache_data
-def get_materiali():
+def get_materiali_e_location():
     sheet = connect_to_gsheet().open("Gestione Ordini").worksheet("Magazzino")
     df = pd.DataFrame(sheet.get_all_records())
-    return sorted(df["Nome"].dropna().unique())
+    materiali = sorted(df["Nome"].dropna().unique())
+    location = sorted(df["Location"].dropna().unique())
+    return materiali, location
 
-# Carica location dal foglio "Magazzino"
-@st.cache_data
-def get_location():
-    sheet = connect_to_gsheet().open("Gestione Ordini").worksheet("Magazzino")
-    df = pd.DataFrame(sheet.get_all_records())
-    return sorted(df["Location"].dropna().unique())
-
-# Interfaccia Streamlit
+# UI
 st.title("📦 Modulo Ordine Materiale")
 
+materiali, locations = get_materiali_e_location()
+
 with st.form("order_form"):
-    user_name = st.text_input("👤 Nome e Cognome")
-    user_email = st.text_input("📧 Email")
-    materiale = st.selectbox("📦 Materiale", get_materiali())
+    nome = st.text_input("👤 Nome e Cognome")
+    email = st.text_input("📧 Email")
+    materiale = st.selectbox("📦 Materiale", materiali)
     quantita = st.number_input("🔢 Quantità", min_value=1, step=1)
-    location = st.selectbox("📍 Location", get_location())
-    consegna = st.date_input("📅 Data di Consegna")
-    ritiro = st.date_input("📅 Data di Ritiro")
-    
+    location = st.selectbox("📍 Location", locations)
+    data_consegna = st.date_input("📅 Data di consegna")
+    data_ritiro = st.date_input("📅 Data di ritiro")
+
     submitted = st.form_submit_button("✅ Invia Ordine")
 
 if submitted:
@@ -48,15 +45,12 @@ if submitted:
         sheet = connect_to_gsheet().open("Gestione Ordini").worksheet("Ordini")
         nuovo_ordine = [
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            user_name,
-            user_email,
-            materiale,
-            quantita,
+            nome, email, materiale, quantita,
             location,
-            consegna.strftime("%Y-%m-%d"),
-            ritiro.strftime("%Y-%m-%d")
+            data_consegna.strftime("%Y-%m-%d"),
+            data_ritiro.strftime("%Y-%m-%d")
         ]
         sheet.append_row(nuovo_ordine)
-        st.success("✅ Ordine inviato correttamente!")
+        st.success("✅ Ordine inviato con successo!")
     except Exception as e:
         st.error(f"❌ Errore durante l'invio dell'ordine: {e}")
